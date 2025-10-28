@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -19,6 +20,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/interfaces"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v6/sdk/api/handlers"
+	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 )
 
@@ -73,6 +75,25 @@ func (h *ClaudeCodeAPIHandler) ClaudeMessages(c *gin.Context) {
 		})
 		return
 	}
+
+	// === DEBUG: Print all request details ===
+	log.Debug("==============================================")
+	log.Debug("Claude Messages Request Details:")
+	log.Debug("==============================================")
+	log.Debugf("Method: %s", c.Request.Method)
+	log.Debugf("URL: %s", c.Request.URL.String())
+	log.Debugf("Proto: %s", c.Request.Proto)
+	log.Debug("--- Headers ---")
+	var headerBuilder strings.Builder
+	for name, values := range c.Request.Header {
+		for _, value := range values {
+			headerBuilder.WriteString(fmt.Sprintf("%s: %s\n", name, value))
+		}
+	}
+	log.Debug(headerBuilder.String())
+	log.Debug("--- Body ---")
+	log.Debugf("%s", string(rawJSON))
+	log.Debug("==============================================")
 
 	// Check if the client requested a streaming response.
 	streamResult := gjson.GetBytes(rawJSON, "stream")

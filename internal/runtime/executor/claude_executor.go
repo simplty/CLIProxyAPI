@@ -68,6 +68,21 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
 		return resp, err
 	}
 	applyClaudeHeaders(httpReq, apiKey, false)
+
+	// === DEBUG: Print upstream request details ===
+	log.Debug(">>> FORWARDING TO UPSTREAM <<<")
+	log.Debug("==============================================")
+	log.Debugf("Upstream URL: %s", url)
+	log.Debugf("Method: %s", httpReq.Method)
+	log.Debug("--- Upstream Headers ---")
+	for name, values := range httpReq.Header {
+		for _, value := range values {
+			log.Debugf("%s: %s", name, value)
+		}
+	}
+	log.Debug("--- Upstream Body ---")
+	log.Debugf("%s", string(body))
+	log.Debug("==============================================")
 	var authID, authLabel, authType, authValue string
 	if auth != nil {
 		authID = auth.ID
@@ -530,17 +545,23 @@ func decodeResponseBody(body io.ReadCloser, contentEncoding string) (io.ReadClos
 }
 
 func applyClaudeHeaders(r *http.Request, apiKey string, stream bool) {
-	r.Header.Set("Authorization", "Bearer "+apiKey)
-	r.Header.Set("Content-Type", "application/json")
-	r.Header.Set("Anthropic-Beta", "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14")
-
+	// 首先获取客户端请求头
 	var ginHeaders http.Header
 	if ginCtx, ok := r.Context().Value("gin").(*gin.Context); ok && ginCtx != nil && ginCtx.Request != nil {
 		ginHeaders = ginCtx.Request.Header
 	}
 
+	// 认证相关的请求头也优先使用客户端提供的
+	misc.EnsureHeader(r.Header, ginHeaders, "Authorization", "Bearer "+apiKey)
+	misc.EnsureHeader(r.Header, ginHeaders, "X-Api-Key", apiKey)
+	misc.EnsureHeader(r.Header, ginHeaders, "Content-Type", "application/json")
+
+	// Anthropic 相关请求头
+	misc.EnsureHeader(r.Header, ginHeaders, "Anthropic-Beta", "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14")
 	misc.EnsureHeader(r.Header, ginHeaders, "Anthropic-Version", "2023-06-01")
 	misc.EnsureHeader(r.Header, ginHeaders, "Anthropic-Dangerous-Direct-Browser-Access", "true")
+
+	// Stainless 相关请求头
 	misc.EnsureHeader(r.Header, ginHeaders, "X-App", "cli")
 	misc.EnsureHeader(r.Header, ginHeaders, "X-Stainless-Helper-Method", "stream")
 	misc.EnsureHeader(r.Header, ginHeaders, "X-Stainless-Retry-Count", "0")
@@ -551,14 +572,18 @@ func applyClaudeHeaders(r *http.Request, apiKey string, stream bool) {
 	misc.EnsureHeader(r.Header, ginHeaders, "X-Stainless-Arch", "arm64")
 	misc.EnsureHeader(r.Header, ginHeaders, "X-Stainless-Os", "MacOS")
 	misc.EnsureHeader(r.Header, ginHeaders, "X-Stainless-Timeout", "60")
-	r.Header.Set("Connection", "keep-alive")
-	r.Header.Set("User-Agent", "claude-cli/1.0.83 (external, cli)")
-	r.Header.Set("Accept-Encoding", "gzip, deflate, br, zstd")
+
+	// 其他通用请求头
+	misc.EnsureHeader(r.Header, ginHeaders, "Connection", "keep-alive")
+	misc.EnsureHeader(r.Header, ginHeaders, "User-Agent", "claude-cli/1.0.83 (external, cli)")
+	misc.EnsureHeader(r.Header, ginHeaders, "Accept-Encoding", "gzip, deflate, br, zstd")
+
+	// Accept 请求头根据是否流式返回设置不同的值
 	if stream {
-		r.Header.Set("Accept", "text/event-stream")
-		return
+		misc.EnsureHeader(r.Header, ginHeaders, "Accept", "text/event-stream")
+	} else {
+		misc.EnsureHeader(r.Header, ginHeaders, "Accept", "application/json")
 	}
-	r.Header.Set("Accept", "application/json")
 }
 
 func claudeCreds(a *cliproxyauth.Auth) (apiKey, baseURL string) {
