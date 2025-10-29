@@ -552,8 +552,8 @@ func applyClaudeHeaders(r *http.Request, apiKey string, stream bool) {
 	}
 
 	// 认证相关的请求头也优先使用客户端提供的
-	misc.EnsureHeader(r.Header, ginHeaders, "Authorization", "Bearer "+apiKey)
-	misc.EnsureHeader(r.Header, ginHeaders, "X-Api-Key", apiKey)
+	r.Header.Set("X-Api-Key", apiKey)
+	r.Header.Set("Authorization", "Bearer "+apiKey)
 	misc.EnsureHeader(r.Header, ginHeaders, "Content-Type", "application/json")
 
 	// Anthropic 相关请求头
@@ -562,7 +562,7 @@ func applyClaudeHeaders(r *http.Request, apiKey string, stream bool) {
 	misc.EnsureHeader(r.Header, ginHeaders, "Anthropic-Dangerous-Direct-Browser-Access", "true")
 
 	// Stainless 相关请求头
-	misc.EnsureHeader(r.Header, ginHeaders, "X-App", "cli")
+	r.Header.Set("X-App", "cli")
 	misc.EnsureHeader(r.Header, ginHeaders, "X-Stainless-Helper-Method", "stream")
 	misc.EnsureHeader(r.Header, ginHeaders, "X-Stainless-Retry-Count", "0")
 	misc.EnsureHeader(r.Header, ginHeaders, "X-Stainless-Runtime-Version", "v22.17.0")
@@ -574,11 +574,11 @@ func applyClaudeHeaders(r *http.Request, apiKey string, stream bool) {
 	misc.EnsureHeader(r.Header, ginHeaders, "X-Stainless-Timeout", "600")
 
 	// 其他通用请求头
-	misc.EnsureHeader(r.Header, ginHeaders, "Connection", "keep-alive")
-	misc.EnsureHeader(r.Header, ginHeaders, "User-Agent", "claude-cli/2.0.28 (external, cli)")
-	misc.EnsureHeader(r.Header, ginHeaders, "Accept-Encoding", "gzip, deflate")
-	misc.EnsureHeader(r.Header, ginHeaders, "Accept-Language", "*")
-	misc.EnsureHeader(r.Header, ginHeaders, "Sec-Fetch-Mode", "cors")
+	r.Header.Set("Connection", "keep-alive")
+	r.Header.Set("User-Agent", "claude-cli/2.0.28 (external, cli)")
+	r.Header.Set("Accept-Encoding", "gzip, deflate")
+	r.Header.Set("Accept-Language", "*")
+	r.Header.Set("Sec-Fetch-Mode", "cors")
 
 	// Accept 请求头根据是否流式返回设置不同的值
 	if stream {
